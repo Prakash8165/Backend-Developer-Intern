@@ -1,0 +1,61 @@
+pip install pytest flask-testing
+
+
+import unittest
+from app import app, db, User, Post, Comment
+
+class BlogAPITestCase(unittest.TestCase):
+
+    def setUp(self):
+        app.config['TESTING'] = True
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+        self.app = app.test_client()
+        with app.app_context():
+            db.create_all()
+
+    def tearDown(self):
+        with app.app_context():
+            db.session.remove()
+            db.drop_all()
+
+    def test_register_user(self):
+        response = self.app.post('/register', json={
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password'
+        })
+        self.assertEqual(response.status_code, 201)
+
+    def test_login_user(self):
+        self.app.post('/register', json={
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password'
+        })
+        response = self.app.post('/login', json={
+            'username': 'testuser',
+            'password': 'password'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('token', response.json)
+
+    def test_create_post(self):
+        self.app.post('/register', json={
+            'username': 'testuser',
+            'email': 'test@example.com',
+            'password': 'password'
+        })
+        login_response = self.app.post('/login', json={
+            'username': 'testuser',
+            'password': 'password'
+        })
+        token = login_response.json['token']
+        response = self.app.post('/posts', json={
+            'title': 'Test Post',
+            'content': 'This is a test post'
+        }, headers={'Authorization': f'Bearer {token}'})
+        self.assertEqual(response.status_code, 201)
+
+# Run the tests
+if _name_ == '_main_':
+    unittest.main()
